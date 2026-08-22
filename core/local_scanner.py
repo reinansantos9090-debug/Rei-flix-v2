@@ -5,8 +5,15 @@ class LocalScanner:
     BASE_DIR = "/storage/emulated/0/Download/Animes"
 
     @staticmethod
+    def ensure_directory_exists():
+        try:
+            if not os.path.exists(LocalScanner.BASE_DIR):
+                os.makedirs(LocalScanner.BASE_DIR, exist_ok=True)
+        except Exception as e:
+            print(f"Erro ao verificar/criar diretório: {e}")
+
+    @staticmethod
     def _clean_base_title(folder_name: str) -> str:
-        """Extrai o nome principal do anime removendo marcadores de temporada/parte"""
         patterns = [
             r'(?i)\s+season\s+\d+.*',
             r'(?i)\s+\d+nd\s+season.*',
@@ -14,6 +21,7 @@ class LocalScanner:
             r'(?i)\s+\d+th\s+season.*',
             r'(?i)\s+part\s+\d+.*',
             r'(?i)\s+dublado.*',
+            r'(?i)\s+legendado.*',
             r'(?i)\s+ova.*'
         ]
         clean_name = folder_name
@@ -23,7 +31,8 @@ class LocalScanner:
 
     @staticmethod
     def get_local_animes_grouped():
-        """Escaneia o diretório e agrupa pastas de temporadas sob o mesmo anime principal"""
+        LocalScanner.ensure_directory_exists()
+
         if not os.path.exists(LocalScanner.BASE_DIR):
             return []
 
@@ -49,6 +58,11 @@ class LocalScanner:
                     continue
 
                 main_title = LocalScanner._clean_base_title(folder_name)
+                
+                # Identificador único baseado no caminho real do diretório
+                # Isso garante que pastas com mesmo nome ou conteúdos distintos não se misturem nem alterem os conteúdos de outras
+                group_key = f"{main_title}_{folder_path}"
+
                 season_label = folder_name.replace(main_title, '').strip()
                 if not season_label:
                     season_label = "Temporada 1"
@@ -59,11 +73,13 @@ class LocalScanner:
                     'episodes': episodes
                 }
 
-                if main_title in grouped_animes:
-                    grouped_animes[main_title]['seasons'].append(season_data)
+                if group_key in grouped_animes:
+                    grouped_animes[group_key]['seasons'].append(season_data)
                 else:
-                    grouped_animes[main_title] = {
+                    grouped_animes[group_key] = {
+                        'id': group_key,
                         'main_title': main_title,
+                        'folder_path': folder_path,
                         'seasons': [season_data]
                     }
 
@@ -71,4 +87,3 @@ class LocalScanner:
             print(f"Erro ao escanear animes locais: {e}")
 
         return list(grouped_animes.values())
-
